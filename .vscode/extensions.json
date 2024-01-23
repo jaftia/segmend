@@ -1,7 +1,22 @@
 {
   "recommendations": [
+    // from data science profile:
+    "github.copilot",
+    "ms-dotnettools.vscode-dotnet-runtime",
+    "ms-python.black-formatter",
+    "ms-python.isort",
     "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-toolsai.datawrangler",
+    "ms-toolsai.jupyter-keymap",
+    "ms-toolsai.jupyter-renderers",
     "ms-toolsai.jupyter",
-    "mechatroner.rainbow-csv"
+    "ms-toolsai.vscode-jupyter-cell-tags",
+    "ms-toolsai.vscode-jupyter-slideshow",
+    "ms-vscode-remote.remote-containers",
+    // custom additions for csv files:
+    "mechatroner.rainbow-csv",
+    "mkxml.vscode-filesize",
+    "praveencrony.total-lines"
   ]
 }
