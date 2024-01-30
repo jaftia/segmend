@@ -159,6 +159,14 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ignore zip files in the data/raw directory
-data/raw/jsrt/*.zip
-data/raw/nlm-mc/*.zip
+# Ignore everything in the data/raw/jsrt directory
+data/raw/jsrt/*
+
+# But do not ignore checksums.json
+!data/raw/jsrt/checksums.json
+
+# Ignore everything in the data/raw/nlm-mc directory
+data/raw/nlm-mc/*
+
+# But do not ignore filesizes.json
+!data/raw/nlm-mc/filesizes.json
