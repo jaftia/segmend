@@ -1,0 +1,119 @@
+<!-- livebook:{"file_entries":[{"name":"x-ray-test-labels-ubyte.bin","type":"attachment"},{"name":"x-ray-test-ubyte.bin","type":"attachment"},{"name":"x-ray-train-labels-ubyte.bin","type":"attachment"},{"name":"x-ray-train-ubyte.bin","type":"attachment"}]} -->
+
+# X-Ray
+
+```elixir
+Mix.install([
+  {:exla, "~> 0.6"},
+  {:nx, "~> 0.6"},
+  {:axon, "~> 0.6"},
+  {:kino, "~> 0.12.0"},
+  {:polaris, "~> 0.1"}
+])
+```
+
+## Section
+
+```elixir
+content =
+  Kino.FS.file_path("x-ray-train-ubyte.bin")
+  |> File.read!()
+
+<<_::32, n_train::32, n_rows::32, n_cols::32, train_data::binary>> = content
+
+x_train =
+  train_data
+  |> Nx.from_binary({:u, 8})
+  |> Nx.reshape({n_train, 1, n_rows, n_cols})
+  |> Nx.divide(255)
+```
+
+```elixir
+content =
+  Kino.FS.file_path("x-ray-train-labels-ubyte.bin")
+  |> File.read!()
+
+<<_::32, n_labels::32, train_label::binary>> = content
+
+y_train =
+  train_label
+  |> Nx.from_binary({:u, 8})
+  |> Nx.reshape({n_labels, 1})
+  |> Nx.equal(Nx.tensor(Enum.to_list(0..1)))
+```
+
+```elixir
+x = Nx.to_batched(x_train, 1)
+y = Nx.to_batched(y_train, 1)
+```
+
+```elixir
+model =
+  Axon.input("input", shape: {n_rows, n_cols})
+  |> Axon.conv(16, kernel_size: {3, 3}, strides: 1, padding: :same, activation: :relu)
+  |> Axon.max_pool(kernel_size: {2, 2}, strides: 2, padding: :same)
+  |> Axon.conv(32, kernel_size: {3, 3}, strides: 1, padding: :same, activation: :relu)
+  |> Axon.dropout(rate: 0.1)
+  |> Axon.max_pool(kernel_size: {2, 2}, strides: 2, padding: :same)
+  |> Axon.conv(32, kernel_size: {3, 3}, strides: 1, padding: :same, activation: :relu)
+  |> Axon.dropout(rate: 0.1)
+  |> Axon.max_pool(kernel_size: {2, 2}, strides: 2, padding: :same)
+  |> Axon.conv(32, kernel_size: {3, 3}, strides: 1, padding: :same, activation: :relu)
+  |> Axon.dropout(rate: 0.2)
+  |> Axon.max_pool(kernel_size: {2, 2}, strides: 2, padding: :same)
+  |> Axon.flatten()
+  |> Axon.dense(16, activation: :relu)
+  |> Axon.dropout(rate: 0.1)
+  |> Axon.dense(8, activation: :relu)
+  |> Axon.dense(2, activation: :softmax)
+```
+
+```elixir
+trained_model =
+  model
+  |> Axon.Loop.trainer(
+    :categorical_cross_entropy,
+    Polaris.Optimizers.adamw(learning_rate: 0.00001)
+  )
+  |> Axon.Loop.run(Stream.zip(x, y), %{}, epochs: 10, compiler: EXLA)
+```
+
+```elixir
+content =
+  Kino.FS.file_path("x-ray-test-ubyte.bin")
+  |> File.read!()
+
+<<_::32, n_train::32, n_rows::32, n_cols::32, test_data::binary>> = content
+
+x_test =
+  test_data
+  |> Nx.from_binary({:u, 8})
+  |> Nx.reshape({n_train, 1, n_rows, n_cols})
+  |> Nx.divide(255)
+```
+
+```elixir
+content =
+  Kino.FS.file_path("x-ray-test-labels-ubyte.bin")
+  |> File.read!()
+
+<<_::32, n_labels::32, test_label::binary>> = content
+
+y_test =
+  test_label
+  |> Nx.from_binary({:u, 8})
+  |> Nx.reshape({n_labels, 1})
+  |> Nx.equal(Nx.tensor(Enum.to_list(0..1)))
+```
+
+```elixir
+result = Axon.predict(model, trained_model, x_test, compiler: EXLA)
+
+result =
+  result
+  |> Nx.argmax(axis: 1)
+  |> Nx.reshape({624, 1})
+  |> Nx.equal(Nx.tensor(Enum.to_list(0..1)))
+
+Axon.Metrics.accuracy(y_test, result)
+```
